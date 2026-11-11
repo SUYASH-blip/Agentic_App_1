@@ -1,6 +1,6 @@
 package org.example.agentic_app1.services;
 
-import org.example.agentic_app1.aitools.WebsiteGenerationTool;
+import org.example.agentic_app1.aitools.WebsiteTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -13,22 +13,23 @@ import java.util.List;
 @Service
 public class WebsiteBuilderService {
 
-    private List<Message> history = new ArrayList<>();
 
     private final ChatClient chatClient;
-    private final WebsiteGenerationTool generationTool;
+    private WebsiteTools websiteTools;
+
+    private final List<Message> history = new ArrayList<>();
 
     public WebsiteBuilderService(ChatClient.Builder builder,
-                                 WebsiteGenerationTool generationTool){
+                                 WebsiteTools websiteTools) {
         this.chatClient = builder.build();
-        this.generationTool = generationTool;
+        this.websiteTools = websiteTools;
     }
 
     private static final String SYSTEM_PROMPT = """
             You are an expert frontend website developer.
-
+            
             Your job is to create complete static websites using the available tools.
-
+            
             Follow these rules:
             1. Create a separate directory for every website.
             2. Create index.html.
@@ -39,26 +40,37 @@ public class WebsiteBuilderService {
             7. Do not just return website code in your response. Actually create the files using tools.
             8. After creating the website, list the project files.
             9. Read important files again if needed and fix obvious problems.
-            10. Finish only when the complete website has been created.
-            """;
+            10.Finish only when the complete website has been created.
+            11.Name every website directory in lowercase letters, numbers and hyphens only,
+               for example "coffee-shop". Never use spaces, slashes or other characters.
+            12. When the website is completely finished, the very last line of your reply
+                must be exactly [[SITE:directory-name]], using the directory name you created.
+                Put nothing after it. Example: [[SITE:coffee-shop]]""";
 
-    public String generate(String prompt){
-
-        //USER-ROLE
-        history.add(new UserMessage(prompt));
 
 
-        //SYSTEM + CONVERSATION HISTORY
+    public String generate(String message) {
+
+        // USER role
+        history.add(new UserMessage(message));
+
+        // SYSTEM + Conversation History
         String response = chatClient.prompt()
-
                 .system(SYSTEM_PROMPT)
                 .messages(history)
-                .tools(generationTool)
+                .tools(websiteTools)
                 .call()
                 .content();
 
+        String site = websiteTools.getLastSite();
+        if (site != null) {
+            if (!response.contains("[[SITE:")) {
+                response = response + "\n\n[[SITE:" + site + "]]";
+            }
+            websiteTools.clearLastSite();
+        }
+
         history.add(new AssistantMessage(response));
         return response;
-
     }
 }

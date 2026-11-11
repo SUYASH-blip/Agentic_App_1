@@ -8,6 +8,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,19 +48,23 @@ public class ChatService {
         this.weatherTool = weatherTool;
     }
 
-    public String generateResponse(String prompt){
+    public Flux<String> generateResponse(String prompt){
+
+        StringBuilder fullResponse = new StringBuilder();
         history.add(new UserMessage(prompt));
-
-        String output = chatClient.prompt()
+        // SYSTEM + Conversation History
+        Flux<String> response = chatClient.prompt()
                 .system(SYSTEM_PROMPT)
-                .tools(calculatorTool,currencyExchangeTool,weatherTool)
                 .messages(history)
-                .call()
-                .content();
+                .tools(weatherTool,currencyExchangeTool,calculatorTool)
+                .stream()
+                .content()
+                .doOnNext(fullResponse::append)
+                .doOnComplete(() -> {
+                    history.add(new AssistantMessage(fullResponse.toString()));
+                });
 
-        history.add(new AssistantMessage(output));
-
-        return output;
+        return response;
     }
 
 }

@@ -4,6 +4,8 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class CalculatorTool {
 
@@ -11,7 +13,7 @@ public class CalculatorTool {
             Performs arithmetic calculations.
             Supported operations: add, subtract, multiply, divide, mod, power.
             """)
-    public double calculate(
+    public Map<String, Object> calculate(
             @ToolParam(description = "Operation: add, subtract, multiply, divide, mod, power")
             String operation,
 
@@ -21,34 +23,29 @@ public class CalculatorTool {
             @ToolParam(description = "Second number")
             double b) {
 
-        System.out.println("Calculator tool called");
+        System.out.println("Calculator tool called: " + a + " " + operation + " " + b);
 
-        if(operation.equals("add")) {
-            return a + b;
-        }
-        else if(operation.equals("subtract")) {
-            return a - b;
-        }
-        else if(operation.equals("divide")) {
-            if(b == 0) {
-                throw new IllegalArgumentException("Cannot divide by 0");
+        String op = operation == null ? "" : operation.trim().toLowerCase();
+        double result;
+
+        switch (op) {
+            case "add" -> result = a + b;
+            case "subtract" -> result = a - b;
+            case "multiply" -> result = a * b;
+            case "divide" -> {
+                if (b == 0) return Map.of("error", "Cannot divide by 0");
+                result = a / b;
             }
-            return a / b;
-        }
-        else if(operation.equals("multiply")) {
-            return a * b;
-        }
-        else if(operation.equals("mod")) {
-            if(b == 0) {
-                throw new IllegalArgumentException("Cannot calculate mod by 0");
+            case "mod" -> {
+                if (b == 0) return Map.of("error", "Cannot calculate mod by 0");
+                result = a % b;   // the old version never returned this value
+            }
+            case "power" -> result = Math.pow(a, b);
+            default -> {
+                return Map.of("error", "Unsupported operation: " + operation);
             }
         }
-        else if(operation.equals("power")) {
-            return Math.pow(a,b);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported operation " + operation);
-        }
-        return 0;
+
+        return Map.of("result", result);
     }
 }
